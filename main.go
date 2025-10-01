@@ -268,8 +268,13 @@ func entryPoint() int {
 	}
 
 	if opt_procmon {
-		defer procmon.Start(ctx)()
-		closehttp, err := procmon.StartHTTP(":8080", "", strings.Join(flag.Args(), " "), ctx.MaxConcurrency)
+		closeprocmon, err := procmon.Start(ctx)
+		if err != nil {
+			panic(err)
+		}
+		defer closeprocmon()
+
+		closehttp, err := procmon.StartHTTP(ctx, ":8080", "", strings.Join(flag.Args(), " "), ctx.MaxConcurrency)
 		if err != nil {
 			panic(err)
 		}

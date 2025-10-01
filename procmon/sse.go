@@ -67,7 +67,7 @@ var hub *sseHub // set when StartHTTP is called
 // StartHTTP starts the live UI and SSE on addr (e.g. ":8080").
 // maxConc is typically ctx.MaxConcurrency (printed in the UI).
 // It returns stopHTTP() that gracefully shuts the server down.
-func StartHTTP(addr, base, title string, maxConc int) (func(context.Context) error, error) {
+func StartHTTP(ctx context.Context, addr, base, title string, maxConc int) (func(context.Context) error, error) {
 	hub = newHub()
 	go hub.run()
 

@@ -41,25 +41,29 @@ var (
 )
 
 // Start begins sampling the *current process*. Call the returned function to stop.
-func Start(ctx *appcontext.AppContext) func() {
+func Start(ctx *appcontext.AppContext) (func(), error) {
 	if running {
-		// already sampling; return a no-op stopper
-		return func() {}
+		return nil, fmt.Errorf("procmon: already running")
 	}
-	running = true
-	stopCh = make(chan struct{})
 
 	// Prepare process handle and prime CPU% baseline
 	var proc *process.Process
 	if p, err := process.NewProcess(int32(os.Getpid())); err == nil {
 		proc = p
 		_, _ = proc.Percent(0)
+	} else {
+		return nil, fmt.Errorf("procmon: cannot get process handle: %w", err)
 	}
+
+	running = true
+	stopCh = make(chan struct{})
 
 	go func() {
 		eventslistener := ctx.Events().Listen()
 		for {
 			select {
+			case <-ctx.Done():
+				stopCh <- struct{}{}
 			case <-stopCh:
 				return
 			case evt := <-eventslistener:
@@ -80,6 +84,9 @@ func Start(ctx *appcontext.AppContext) func() {
 		defer t.Stop()
 		for {
 			select {
+			case <-ctx.Done():
+				stopCh <- struct{}{}
+
 			case <-stopCh:
 				return
 
@@ -87,14 +94,14 @@ func Start(ctx *appcontext.AppContext) func() {
 				var cpu float64
 				var rss uint64
 				var gr int
-				if proc != nil {
-					if v, err := proc.Percent(0); err == nil {
-						cpu = v
-					}
-					if mi, err := proc.MemoryInfo(); err == nil && mi != nil {
-						rss = mi.RSS
-					}
+
+				if v, err := proc.Percent(0); err == nil {
+					cpu = v
 				}
+				if mi, err := proc.MemoryInfo(); err == nil && mi != nil {
+					rss = mi.RSS
+				}
+
 				gr = runtime.NumGoroutine()
 
 				s := Sample{
@@ -124,7 +131,7 @@ func Start(ctx *appcontext.AppContext) func() {
 			close(stopCh)
 			running = false
 		})
-	}
+	}, nil
 }
 
 // Samples returns a copy of all collected samples so far.
