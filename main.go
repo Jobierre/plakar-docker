@@ -154,15 +154,6 @@ func entryPoint() int {
 	ctx := appcontext.NewAppContext()
 	defer ctx.Close()
 
-	if opt_procmon {
-		defer procmon.Start(ctx)()
-		closehttp, err := procmon.StartHTTP(":8080", "", strings.Join(flag.Args(), " "))
-		if err != nil {
-			panic(err)
-		}
-		defer closehttp(ctx)
-	}
-
 	ctx.ConfigDir = opt_configdir
 	err = ctx.ReloadConfig()
 	if err != nil {
@@ -274,6 +265,15 @@ func entryPoint() int {
 		fmt.Fprintf(os.Stderr, "%s: a subcommand must be provided\n", filepath.Base(flag.CommandLine.Name()))
 		listCmds(os.Stderr, "  ")
 		return 1
+	}
+
+	if opt_procmon {
+		defer procmon.Start(ctx)()
+		closehttp, err := procmon.StartHTTP(":8080", "", strings.Join(flag.Args(), " "), ctx.MaxConcurrency)
+		if err != nil {
+			panic(err)
+		}
+		defer closehttp(ctx)
 	}
 
 	logger := logging.NewLogger(os.Stdout, os.Stderr)

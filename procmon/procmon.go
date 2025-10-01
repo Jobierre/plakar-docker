@@ -3,6 +3,7 @@ package procmon
 import (
 	"fmt"
 	"os"
+	"runtime"
 	"sync"
 	"time"
 
@@ -15,6 +16,7 @@ type Sample struct {
 	TS         time.Time
 	CPUPercent float64
 	RSSBytes   uint64
+	Goroutines int
 }
 
 type Marker struct {
@@ -84,6 +86,7 @@ func Start(ctx *appcontext.AppContext) func() {
 			case now := <-t.C:
 				var cpu float64
 				var rss uint64
+				var gr int
 				if proc != nil {
 					if v, err := proc.Percent(0); err == nil {
 						cpu = v
@@ -92,10 +95,13 @@ func Start(ctx *appcontext.AppContext) func() {
 						rss = mi.RSS
 					}
 				}
+				gr = runtime.NumGoroutine()
+
 				s := Sample{
 					TS:         now.UTC(),
 					CPUPercent: cpu,
 					RSSBytes:   rss,
+					Goroutines: gr,
 				}
 				mu.Lock()
 				if len(samples) < maxSamples {
