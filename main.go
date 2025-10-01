@@ -7,11 +7,13 @@ import (
 	"io"
 	"log"
 	"os"
+	"os/signal"
 	"os/user"
 	"path/filepath"
 	"runtime"
 	"runtime/pprof"
 	"strings"
+	"syscall"
 	"time"
 
 	"github.com/PlakarKorp/kloset/caching"
@@ -65,6 +67,8 @@ import (
 	_ "github.com/PlakarKorp/integration-fs/importer"
 	_ "github.com/PlakarKorp/integration-fs/storage"
 	_ "github.com/PlakarKorp/integration-ptar/storage"
+
+	//_ "github.com/PlakarKorp/integration-s3/storage"
 	_ "github.com/PlakarKorp/integration-stdio/exporter"
 	_ "github.com/PlakarKorp/integration-stdio/importer"
 	_ "github.com/PlakarKorp/integration-tar/importer"
@@ -404,6 +408,31 @@ func entryPoint() int {
 
 	cmd.SetCWD(ctx.CWD)
 	cmd.SetCommandLine(ctx.CommandLine)
+
+	c := make(chan os.Signal, 1)
+	go func() {
+		profCount := 1
+		for {
+			sig := <-c
+
+			if sig == syscall.SIGUSR1 {
+				f, err := os.Create(fmt.Sprintf("./mem-profile-%d.pprof", profCount))
+				if err != nil {
+					log.Fatal("could not create memory profile: ", err)
+				}
+
+				profCount++
+				//runtime.GC()    // get up-to-date statistics
+				pprof.WriteHeapProfile(f)
+				f.Close()
+			} else if sig == os.Interrupt {
+				fmt.Fprintf(os.Stderr, "%s: Interrupting, it might take a while...\n", flag.CommandLine.Name())
+				ctx.Cancel()
+				break
+			}
+		}
+	}()
+	signal.Notify(c, os.Interrupt, syscall.SIGUSR1)
 
 	var status int
 
