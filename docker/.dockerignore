@@ -1,0 +1,25 @@
+# Build artifacts
+bin
+out
+build
+/dist
+
+# VCS
+.git
+.gitignore
+
+# IDE/editor settings
+.vscode
+.idea
+*.swp
+
+# Tests and coverage
+coverage
+*.test
+
+# Local data directories
+plakarfs
+
+# OS files
+.DS_Store
+Thumbs.db

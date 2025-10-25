@@ -1,0 +1,50 @@
+# syntax=docker/dockerfile:1
+
+FROM debian:bookworm-slim
+
+ARG PLAKAR_VERSION=latest
+ARG PLAKAR_ARCH=amd64
+
+ENV PLAKAR_VERSION=${PLAKAR_VERSION} \
+    PLAKAR_ARCH=${PLAKAR_ARCH}
+
+RUN set -eux; \
+    apt-get update; \
+    apt-get install -y --no-install-recommends ca-certificates curl fuse3; \
+    release_tag="${PLAKAR_VERSION}"; \
+    if [ "${PLAKAR_VERSION}" = "latest" ]; then \
+        release_tag=$(curl -fsSLI -o /dev/null -w '%{url_effective}' https://github.com/PlakarKorp/plakar/releases/latest); \
+        release_tag="${release_tag##*/}"; \
+    fi; \
+    version_no_v="${release_tag#v}"; \
+    download_url="https://github.com/PlakarKorp/plakar/releases/download/${release_tag}/plakar_${version_no_v}_linux_${PLAKAR_ARCH}.deb"; \
+    tmpdir=$(mktemp -d); \
+    cd "${tmpdir}"; \
+    curl -fsSLo plakar.deb "${download_url}"; \
+    apt-get install -y --no-install-recommends ./plakar.deb; \
+    cd /; \
+    rm -rf "${tmpdir}"; \
+    rm -rf /var/lib/apt/lists/*
+
+RUN groupadd --system fuse || true
+RUN useradd --system --home-dir /var/lib/plakar --create-home --shell /usr/sbin/nologin plakar && \
+    usermod -aG fuse plakar
+
+WORKDIR /var/lib/plakar
+
+# Initialisation de Plakar avec security check (en tant que root)
+RUN /usr/bin/plakar -enable-security-check || true
+#RUN /usr/bin/plakar version
+# Donner les permissions à l'utilisateur plakar pour accéder au répertoire
+RUN chown -R plakar:plakar /var/lib/plakar
+
+VOLUME ["/var/lib/plakar"]
+
+COPY docker-entrypoint.sh /usr/local/bin/docker-entrypoint.sh
+RUN chmod +x /usr/local/bin/docker-entrypoint.sh
+
+USER plakar
+
+# Ajouter /usr/bin au PATH explicitement et utiliser le chemin complet
+ENV PATH="/usr/bin:/usr/local/bin:/bin:/sbin:${PATH}"
+ENTRYPOINT ["/usr/local/bin/docker-entrypoint.sh"]

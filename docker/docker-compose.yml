@@ -1,0 +1,43 @@
+services:
+  plakar:
+    build:
+      context: .
+      dockerfile: dockerfile
+      args:
+        - PLAKAR_VERSION=${PLAKAR_VERSION:-latest}
+        - PLAKAR_ARCH=${PLAKAR_ARCH:-amd64}
+    container_name: plakar
+    restart: unless-stopped
+    environment:
+      - PLAKAR_VERSION=${PLAKAR_VERSION:-latest}
+      - PLAKAR_ARCH=${PLAKAR_ARCH:-amd64}
+      #- PLAKAR_STARTUP_COMMAND=${PLAKAR_STARTUP_COMMAND:-plakar scheduler start -tasks ./scheduler.yaml}
+    volumes:
+      # Volume persistant pour les données Plakar
+      - plakar_data:/var/lib/plakar
+      - ./ignore.txt:/var/lib/plakar/ignore.txt:ro
+      - ./scheduler.yaml:/var/lib/plakar/scheduler.yaml:ro
+      # Montage de données locales (optionnel - à adapter selon vos besoins)
+      # - ./data:/data:ro
+      # - ./backups:/backups
+    # Configuration réseau pour le serveur Plakar
+    ports:
+      - "8080:9876"
+    # Arguments personnalisés pour plakar (utilise PLAKAR_COMMAND du .env)
+    #command: ["${PLAKAR_COMMAND:-server}"]
+    # Sécurité - limitation des capabilities
+    cap_drop:
+      - ALL
+    cap_add:
+      - SYS_ADMIN  # Nécessaire pour FUSE si utilisé
+    # Devices pour FUSE (si nécessaire)
+    devices:
+      - /dev/fuse:/dev/fuse
+    # Privilèges requis pour FUSE
+    privileged: false
+    security_opt:
+      - apparmor:unconfined
+
+volumes:
+  plakar_data:
+    driver: local

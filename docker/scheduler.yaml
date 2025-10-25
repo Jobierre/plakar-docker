@@ -1,0 +1,9 @@
+agent:
+	tasks:
+	  - name: backup Plakar immich
+		  repository: "@immich"
+
+		  backup:
+		    path: /root/immich/
+			  interval: 24h
+			  check: true
